@@ -1,0 +1,16 @@
+#include<stdio.h>
+#include<omp.h>
+int main(){
+  int n,i,t;
+  printf("Enter the number of threads:");
+  scanf("%d",&t);
+  printf("Enter the number of iterations:");
+  scanf("%d",&n);
+  omp_set_num_threads(t);
+  #pragma omp parallel for schedule(static,2)
+  for(i=0;i<n;i++){
+   int id=omp_get_thread_num();
+   printf("Iterations %d is handled by thread %d\n",i,id);
+   }
+   }
+  
