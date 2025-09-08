@@ -34,3 +34,4 @@ int main() {
             printf("Time taken: %f seconds\n", end_time - start_time);
         }
     }
+}
