@@ -1,0 +1,49 @@
+#include<stdio.h>
+#include<time.h>
+#include<omp.h>
+
+int isprime(int num){
+if(num<=1){
+ return 0;}
+ if(num==2){
+ return 1;}
+ for(int i=3;i<num/2;i++){
+  if(num%i==0){
+      return 0;
+      }
+      }
+      return 1;
+    }
+   
+    int main(int num){
+      int n,i;
+      double start ,end,pstart,pend;
+      printf("enter the value of n:");
+      scanf("%d",&n);
+      printf("\n serial execution\n");
+      start=omp_get_wtime();
+      int serial_count=0;
+      for(i=1;i<=n;i++){
+      if(isprime(i))
+         printf("%d",i);
+         
+      }
+      end=omp_get_wtime();
+      printf("serial time:%.6f seconds\n",end-start);
+     
+       printf("\n parallel execution\n");
+      pstart=omp_get_wtime();
+      int parallel_count=0;
+      #pragma omp parallel for default(none) shared(n) private(i)
+      for(i=1;i<=n;i++){
+      if(isprime(i))
+         printf("%d",i);
+         
+      }
+      pend=omp_get_wtime();
+      printf("paralel time:%.6f seconds\n",pend-pstart);
+      return 0;
+     
+     
+    }
+
