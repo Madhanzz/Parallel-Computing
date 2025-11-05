@@ -1,0 +1,97 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int compare(const void *a, const void *b) {
+    return (*(int *)a - *(int *)b);
+}
+
+void merge_low(int *local, int *recv, int n) {
+    int *temp = (int *)malloc(n * sizeof(int));
+    int i = 0, j = 0, k = 0;
+    while (k < n) {
+        if (local[i] < recv[j])
+            temp[k++] = local[i++];
+        else
+            temp[k++] = recv[j++];
+    }
+    for (i = 0; i < n; i++)
+        local[i] = temp[i];
+    free(temp);
+}
+
+void merge_high(int *local, int *recv, int n) {
+    int *temp = (int *)malloc(n * sizeof(int));
+    int i = n - 1, j = n - 1, k = n - 1;
+    while (k >= 0) {
+        if (local[i] > recv[j])
+            temp[k--] = local[i--];
+        else
+            temp[k--] = recv[j--];
+    }
+    for (i = 0; i < n; i++)
+        local[i] = temp[i];
+    free(temp);
+}
+
+int main(int argc, char *argv[]) {
+    int rank, size, n = 8;
+    int data[8] = {23, 12, 4, 56, 9, 34, 2, 45};
+    int *local_data, *recv_data;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int local_n = n / size;
+    local_data = (int *)malloc(local_n * sizeof(int));
+    MPI_Scatter(data, local_n, MPI_INT, local_data, local_n, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // Step 1: Local sort
+    qsort(local_data, local_n, sizeof(int), compare);
+
+    // Step 2: Odd-even transposition sort
+    recv_data = (int *)malloc(local_n * sizeof(int));
+    for (int phase = 0; phase < size; phase++) {
+        if (phase % 2 == 0) { // even phase
+            if (rank % 2 == 0 && rank + 1 < size) {
+                MPI_Sendrecv(local_data, local_n, MPI_INT, rank + 1, 0,
+                             recv_data, local_n, MPI_INT, rank + 1, 0,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                merge_low(local_data, recv_data, local_n);
+            } else if (rank % 2 == 1) {
+                MPI_Sendrecv(local_data, local_n, MPI_INT, rank - 1, 0,
+                             recv_data, local_n, MPI_INT, rank - 1, 0,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                merge_high(local_data, recv_data, local_n);
+            }
+        } else { // odd phase
+            if (rank % 2 == 1 && rank + 1 < size) {
+                MPI_Sendrecv(local_data, local_n, MPI_INT, rank + 1, 0,
+                             recv_data, local_n, MPI_INT, rank + 1, 0,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                merge_low(local_data, recv_data, local_n);
+            } else if (rank % 2 == 0 && rank != 0) {
+                MPI_Sendrecv(local_data, local_n, MPI_INT, rank - 1, 0,
+                             recv_data, local_n, MPI_INT, rank - 1, 0,
+                             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                merge_high(local_data, recv_data, local_n);
+            }
+        }
+    }
+
+    // Step 3: Gather results
+    MPI_Gather(local_data, local_n, MPI_INT, data, local_n, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        printf("Sorted array: ");
+        for (int i = 0; i < n; i++)
+            printf("%d ", data[i]);
+        printf("\n");
+    }
+
+    free(local_data);
+    free(recv_data);
+    MPI_Finalize();
+    return 0;
+}
